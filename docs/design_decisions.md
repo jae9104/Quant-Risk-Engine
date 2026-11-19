@@ -41,3 +41,27 @@ This document records the core engineering and quantitative trade-offs made in *
 * **Context:** Portfolio risk metrics (VaR/CVaR) and exposure tracking (`gross_exposure` vs. `net_exposure`) are significantly more informative when portfolios can hold hedged long/short positions.
 * **Decision:** Support full signed position accounting (longs, shorts, partial closes, and side flips) in `PortfolioManager`, while explicitly excluding broker margin calls, overnight financing, and short-borrow fee curves.
 * **Trade-offs & Rationale:** Signed accounting adds minimal code complexity while enabling realistic correlation/hedging tests in the VaR engine. Modeling prime-brokerage margin rules is out of scope and would obscure the core focus on market risk management.
+
+---
+
+## ADR-006: Coherent Tail Risk (CVaR / Expected Shortfall) Alongside Multi-Method VaR
+* **Status:** Accepted (Phase 2)
+* **Context:** Value at Risk (VaR) is neither sub-additive nor informative about loss severity beyond the confidence quantile—a known blind spot during market crashes.
+* **Decision:** Compute Parametric, Historical, and Monte Carlo VaR simultaneously, paired with Historical and Monte Carlo Conditional VaR (CVaR / Expected Shortfall).
+* **Trade-offs & Rationale:** Aligns the engine with Basel III/IV market risk standards (FRTB) and gives downstream risk controls visibility into both normal-regime dispersion and fat-tail severity.
+
+---
+
+## ADR-007: Zero-Allocation Numba Monte Carlo with Eigenvalue-Clipped Cholesky Fallback
+* **Status:** Accepted (Phase 2)
+* **Context:** Re-running 10,000+ correlated multi-asset Monte Carlo simulations on every bar in pure Python creates prohibitive backtest latency, and sample covariance matrices frequently lose strict positive definiteness when assets are collinear or $T \le N$.
+* **Decision:** Compile the Monte Carlo path loop with `@njit(cache=True)` exploiting the lower-triangular structure of the Cholesky factor $L$ without per-path heap allocations, and guard `np.linalg.cholesky` with symmetric eigenvalue clipping ($\lambda_i \ge 10^{-12}$).
+* **Trade-offs & Rationale:** Eliminates mid-backtest `LinAlgError` crashes on real market universes while preserving deterministic replay via explicit RNG seeding and native C-like execution speed.
+
+---
+
+## ADR-008: Statistical VaR Calibration via Kupiec POF Backtest
+* **Status:** Accepted (Phase 2)
+* **Context:** Producing a daily VaR time series without verifying realized breach rates leaves model miscalibration (underestimation of tail risk or excessive conservatism) undetected.
+* **Decision:** Include Kupiec's Proportion of Failures (POF) likelihood-ratio test ($\chi^2_1$) with exact log-space handling of $0\%$ and $100\%$ boundary exception rates.
+* **Trade-offs & Rationale:** Turns the risk module from a descriptive calculator into an auditable institutional model whose accuracy can be quantified in backtest reports.
