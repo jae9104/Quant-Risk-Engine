@@ -1,0 +1,22 @@
+# Enviroments and cache of Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+
+# Compilation JIT Caches, type checking and tests
+.numba_cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local files and IDEs
+data/*.csv
+data/*.parquet
+.env
+.DS_Store
+.idea/
+.vscode/
